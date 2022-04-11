@@ -109,6 +109,22 @@ text = "
 AUDIO SETTINGS
 "
 
+[node name="LanguageLabel" type="RichTextLabel" parent="PauseMenu/MainMenu"]
+anchor_left = 0.428
+anchor_top = 0.192
+anchor_right = 0.572
+anchor_bottom = 0.404
+margin_left = -129.272
+margin_top = 318.8
+margin_right = -42.728
+margin_bottom = 231.6
+rect_scale = Vector2( 2, 2 )
+custom_fonts/normal_font = SubResource( 1 )
+bbcode_enabled = true
+text = "
+LANGUAGE: <  EN  >
+"
+
 [node name="RestartLabel" type="RichTextLabel" parent="PauseMenu/MainMenu"]
 anchor_left = 0.355
 anchor_top = 0.405
