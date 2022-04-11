@@ -16,6 +16,9 @@ var volume_game : int;
 var volume_music : int;
 var volume_sfx : int;
 
+# language settings
+var language_game : String;
+
 func save_data ():
 	# create dictionary of settings data
 	var settings_values = {
@@ -25,7 +28,9 @@ func save_data ():
 
 								"sfx_volume_game":      volume_game,
 								"sfx_volume_music":     volume_music,
-								"sfx_volume_sfx":       volume_sfx
+								"sfx_volume_sfx":       volume_sfx,
+								
+								"language": language_game,
 						  };
 
 	# access settings.mario and write settings to it
@@ -48,6 +53,8 @@ func load_data ():
 		volume_game=        10;
 		volume_music=       10;
 		volume_sfx=         10;
+		
+		language_game = "en"
 		return;
 
 	# access settings.mario and read settings
@@ -62,6 +69,7 @@ func load_data ():
 				"sfx_volume_game":      volume_game=    int(settings_values[i]);
 				"sfx_volume_music":     volume_music=   int(settings_values[i]);
 				"sfx_volume_sfx":       volume_sfx=     int(settings_values[i]);
+				"language":				language_game=	settings_values[i];
 	settings_file.close();
 	settings_loaded = true;
 
@@ -70,3 +78,4 @@ func load_data ():
 	EventBus.emit_signal("volume_changed","game");
 	EventBus.emit_signal("volume_changed","music");
 	EventBus.emit_signal("volume_changed","sfx");
+	EventBus.emit_signal("language_changed", language_game)

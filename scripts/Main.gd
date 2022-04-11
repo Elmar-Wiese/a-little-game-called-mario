@@ -20,6 +20,7 @@ func _ready() -> void:
 	EventBus.connect("build_block", self, "_on_build")
 	EventBus.connect("crt_filter_toggle",self,"_on_crt_toggle")
 	EventBus.connect("volume_changed",self,"_on_volume_change")
+	EventBus.connect("language_changed", self,"_on_language_change")
 	Settings.load_data()
 	_hook_portals()
 	VisualServer.set_default_clear_color(Color.black)
@@ -128,3 +129,7 @@ func _on_volume_change(bus) -> void:
 			AudioServer.set_bus_volume_db(
 				AudioServer.get_bus_index("sfx"), linear2db(Settings.volume_sfx / 10.0)
 			)
+
+func _on_language_change(lang: String) -> void:
+	if !lang.empty():
+		TranslationServer.set_locale(lang)
