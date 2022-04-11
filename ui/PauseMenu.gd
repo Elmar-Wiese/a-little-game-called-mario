@@ -296,5 +296,5 @@ func change_lang(direction: int, label: RichTextLabel):
 	EventBus.emit_signal("language_changed",possibleLanguages[newLang]);
 	
 	label.text = "\nLANGUAGE: < " + Settings.language_game.to_upper() + " >"
-	
-	get_tree().change_scene("res://###")
+	print(get_tree().get_nodes_in_group("UI"))
+	#get_tree().change_scene("res://###")

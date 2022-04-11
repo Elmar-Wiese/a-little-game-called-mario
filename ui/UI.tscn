@@ -9,13 +9,10 @@
 
 [node name="UI" type="CanvasLayer"]
 
-[node name="UI" type="Control" parent="."]
+[node name="UI" type="Control" parent="." groups=["UI"]]
 margin_right = 1024.0
 margin_bottom = 600.0
 theme = ExtResource( 5 )
-__meta__ = {
-"_edit_use_anchors_": false
-}
 
 [node name="RichTextLabel" type="RichTextLabel" parent="UI"]
 anchor_left = 0.03
