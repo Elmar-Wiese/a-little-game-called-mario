@@ -21,6 +21,7 @@ onready var labels = [
 							get_node("PauseMenu/MainMenu/BackLabel"),
 							get_node("PauseMenu/MainMenu/GFXLabel"),
 							get_node("PauseMenu/MainMenu/SFXLabel"),
+							get_node("PauseMenu/MainMenu/LanguageLabel"),
 							get_node("PauseMenu/MainMenu/RestartLabel"),
 						],
 						# all gfx menu items, ordered vertically
@@ -76,7 +77,9 @@ func _process (_delta: float):
 			set_item_style();
 		elif Input.is_action_just_pressed("ui_left"):
 			match current_menu:
-				SUBMENU.MAIN: pass;
+				SUBMENU.MAIN: 
+					match selected:
+						3: change_lang(-1, label)
 				SUBMENU.GFX:
 					match selected:
 						0: pass;
@@ -87,7 +90,9 @@ func _process (_delta: float):
 					if 0 < selected:    volume_select(-1, label);
 		elif Input.is_action_just_pressed("ui_right"):
 			match current_menu:
-				SUBMENU.MAIN: pass;
+				SUBMENU.MAIN: 
+					match selected:
+						3: change_lang(1, label)
 				SUBMENU.GFX:
 					match selected:
 						0: pass;
@@ -103,7 +108,8 @@ func _process (_delta: float):
 						0: EventBus.emit_signal("game_paused", false);
 						1: go_to_menu(SUBMENU.GFX);
 						2: go_to_menu(SUBMENU.SFX);
-						3:
+						3: change_lang(1, label);
+						4:
 							EventBus.emit_signal("game_paused", false);
 							get_tree().reload_current_scene(); # restart
 				SUBMENU.GFX:
@@ -249,6 +255,11 @@ func volume_select (delta: int, label: RichTextLabel):
 ## Prepares all the labels with the loaded Settings. Should ONLY be called in _ready().
 func prepare_labels ():
 	var label: RichTextLabel;
+	for mainmenu in range(1, labels[SUBMENU.MAIN].size()):
+		label = labels[SUBMENU.MAIN][mainmenu];
+		match mainmenu:
+			3: label.text = "\nLANGUAGE: < " + Settings.language_game.to_upper() + " >";
+	
 	for gfx in range(1, labels[SUBMENU.GFX].size()):
 		label = labels[SUBMENU.GFX][gfx];
 		match gfx:
@@ -263,3 +274,27 @@ func prepare_labels ():
 			2:  label.text="\nMUSIC VOLUME: " + ("<" if 0 < Settings.volume_music else " ") + "  " + (" " if 10 > Settings.volume_music else "") + str(Settings.volume_music) + "  " + (">" if 10 > Settings.volume_music else " ") + "\n";
 			3:  label.text="\nSFX VOLUME: " + ("<" if 0 < Settings.volume_sfx else " ") + "  " + (" " if 10 > Settings.volume_sfx else "") + str(Settings.volume_sfx) + "  " + (">" if 10 > Settings.volume_sfx else " ") + "\n";
 	pass;
+
+## change the lang to the lang to the left or right
+func change_lang(direction: int, label: RichTextLabel):
+	print("changle_lang")
+	
+	var possibleLanguages : Array = TranslationServer.get_loaded_locales() #example [de, en]
+	var current : int =  possibleLanguages.bsearch(Settings.language_game) 
+	
+	var newLang : int = current + direction
+	if newLang < 0:
+		newLang = possibleLanguages.size() - 1;
+	if newLang >= possibleLanguages.size():
+		newLang = 0
+	
+	var newLangString : String = possibleLanguages[newLang]
+	Settings.language_game = newLangString
+	# reapply the wave
+	set_item_style();
+	
+	EventBus.emit_signal("language_changed",possibleLanguages[newLang]);
+	
+	label.text = "\nLANGUAGE: < " + Settings.language_game.to_upper() + " >"
+	
+	get_tree().change_scene("res://###")

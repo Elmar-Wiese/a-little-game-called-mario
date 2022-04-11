@@ -71,6 +71,9 @@ func load_data ():
 				"sfx_volume_sfx":       volume_sfx=     int(settings_values[i]);
 				"language":				language_game=	settings_values[i];
 	settings_file.close();
+	
+	check_loaded()
+	
 	settings_loaded = true;
 
 	# emit any relevant signals
@@ -79,3 +82,20 @@ func load_data ():
 	EventBus.emit_signal("volume_changed","music");
 	EventBus.emit_signal("volume_changed","sfx");
 	EventBus.emit_signal("language_changed", language_game)
+
+func check_loaded():
+	if camera_lean == null:
+		camera_lean=        CameraLeanAmount.MAX;
+	if screen_shake == null:
+		screen_shake=       true;
+	if crt_filter == null:
+		crt_filter=         true;
+	if volume_game == null:
+		volume_game=        10;
+	if volume_music == null:
+		volume_music=       10;
+	if volume_sfx == null:
+		volume_sfx=         10;
+	if language_game == null or language_game.empty(): 
+		language_game = "en";
+
