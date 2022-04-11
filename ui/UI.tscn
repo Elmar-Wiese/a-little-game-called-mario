@@ -41,15 +41,15 @@ CONTROL/Z TO [wave amp=50 freq=2]SHOOT[/wave]
 B TO[wave amp=50 freq=2] FIREBALL [/wave]
 
 (WITH POWERUP)"
-text = "ARROW KEYS TO [rainbow freq=0.5 sat=1 val=20]MOVE[/rainbow]
+text = "ARROW KEYS TO MOVE
 
-SHIFT TO [wave amp=50 freq=2]SPRINT[/wave]
+SHIFT TO SPRINT
 
-SPACE TO [wave amp=50 freq=2]JUMP[/wave]
+SPACE TO JUMP
 
-CONTROL/Z TO [wave amp=50 freq=2]SHOOT[/wave]
+CONTROL/Z TO SHOOT
 
-B TO[wave amp=50 freq=2] FIREBALL [/wave]
+B TO FIREBALL 
 
 (WITH POWERUP)"
 fit_content_height = true
@@ -69,7 +69,7 @@ bbcode_enabled = true
 bbcode_text = "
 [wave amp=50 freq=2]LEVEL:[rainbow freq=0.5 sat=1 val=20]1[/rainbow] [/wave]"
 text = "
-[wave amp=50 freq=2]LEVEL:[rainbow freq=0.5 sat=1 val=20]1[/rainbow] [/wave]"
+LEVEL:1 "
 script = ExtResource( 4 )
 
 [node name="CoinCount" type="RichTextLabel" parent="UI"]
@@ -84,7 +84,7 @@ bbcode_enabled = true
 bbcode_text = "
 [wave amp=50 freq=2]COINS:[rainbow freq=0.5 sat=1 val=20]0[/rainbow] [/wave]"
 text = "
-[wave amp=50 freq=2]COINS:[rainbow freq=0.5 sat=1 val=20]0[/rainbow] [/wave]"
+COINS:0 "
 script = ExtResource( 2 )
 __meta__ = {
 "_edit_use_anchors_": false
