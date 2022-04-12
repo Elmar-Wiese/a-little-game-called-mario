@@ -107,6 +107,10 @@ func disable_collision():
 # until the animations are finished.
 func _handle_dying(_killer):
 	disable_collision()
+	if _killer is CoinProjectile:
+		EventBus.emit_signal("enemy_hit_coin")
+	elif _killer is Fireball:
+		EventBus.emit_signal("enemy_hit_fireball")
 	_animation_player.play("die")
 	$SquishParticles.emitting = true
 	yield(_animation_player, "animation_finished")
@@ -116,17 +120,19 @@ func _handle_dying(_killer):
 func fire_bullet():
 	# instance bullet
 	var bullet = bullet_scene.instance()
-	get_tree().root.add_child(bullet)
+	get_parent().add_child(bullet)
 	bullet.global_position = _muzzle.global_position
 	bullet.scale.x = direction
-	
+
+	bullet.start_moving(Vector2.LEFT if direction < 0 else Vector2.RIGHT)
+
 	# instance muzzle flash
 	var flash = muzzle_flash_scene.instance()
 	get_tree().root.add_child(flash)
 	flash.global_position = _muzzle.global_position
-	
+
 	pop_gun_sfx.play()
-	
+
 	yield(_animation_player, "animation_finished")
 	_shooting_cooldown = MAX_SHOOTING_COOLDOWN
 	start_walking()
@@ -141,6 +147,7 @@ func _on_KillTrigger_body_entered(body):
 	if not body is Player:
 		return
 	var player = body as Player
+	player.jump_xp += 1
 	player.bounce(BOUNCE_STRENGTH)
 	squash(0.075)
 	yield(tween, "tween_all_completed")
