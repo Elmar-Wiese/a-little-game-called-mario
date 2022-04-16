@@ -1,4 +1,4 @@
-[gd_scene load_steps=21 format=2]
+[gd_scene load_steps=22 format=2]
 
 [ext_resource path="res://fonts/ALittleNameCalle.ttf" type="DynamicFontData" id=1]
 [ext_resource path="res://sprites/bg-tile.png" type="Texture" id=2]
@@ -15,6 +15,7 @@
 [ext_resource path="res://scenes/title/SokobanButton.gd" type="Script" id=13]
 [ext_resource path="res://scenes/title/MarwingButton.gd" type="Script" id=14]
 [ext_resource path="res://scenes/title/TitleScreen.gd" type="Script" id=15]
+[ext_resource path="res://scenes/title/WorldMapButton.gd" type="Script" id=16]
 
 [sub_resource type="DynamicFont" id=1]
 size = 48
@@ -160,7 +161,7 @@ __meta__ = {
 margin_left = 177.0
 margin_top = 258.0
 margin_right = 807.0
-margin_bottom = 414.0
+margin_bottom = 454.0
 size_flags_horizontal = 4
 size_flags_vertical = 8
 
@@ -246,10 +247,17 @@ __meta__ = {
 "_edit_lock_": true
 }
 
+[node name="WorldMapButton" type="Button" parent="VBoxContainer/VBoxContainer"]
+margin_top = 160.0
+margin_right = 630.0
+margin_bottom = 196.0
+text = "WORLD MAP (W.I.P)"
+script = ExtResource( 16 )
+
 [node name="HBoxContainer2" type="HBoxContainer" parent="VBoxContainer"]
-margin_top = 418.0
+margin_top = 458.0
 margin_right = 984.0
-margin_bottom = 538.0
+margin_bottom = 578.0
 alignment = 1
 
 [node name="SmolCreditsLabel" type="Label" parent="VBoxContainer/HBoxContainer2"]
