@@ -6,17 +6,37 @@ const COINS_GROUP: String = "Coins"
 const PROJECTILES_GROUP: String = "Projectiles"
 
 onready var hub: TileMap = $TileMap
-onready var level: TileMap = $TileMap
+onready var level: Node = $TileMap
+onready var bgm: AudioStreamPlayer = $Audio/BGM
+onready var ui: CanvasLayer = $UI
 
-var completionSound = preload("res://sfx/portal.wav")
-var coinSound = preload("res://sfx/coin.wav")
+var completionSound = preload("res://audio/sfx/portal.wav")
+var coinSound = preload("res://audio/sfx/coin.wav")
+
+var entering_portal: bool = false
 
 
 func _ready() -> void:
 	EventBus.connect("build_block", self, "_on_build")
-	Settings.load_data()
+	EventBus.connect("bgm_changed", self, "_bgm_changed")
+	EventBus.connect("ui_visibility_changed", self, "_on_ui_visibility_changed")
 	_hook_portals()
 	VisualServer.set_default_clear_color(Color.black)
+
+
+func _exit_tree() -> void:
+	EventBus.emit_signal("game_exit")
+
+
+func _on_ui_visibility_changed(data):
+	ui.get_child(0).visible = data.visible
+
+
+func _bgm_changed(data) -> void:
+	if "playing" in data:
+		bgm.playing = data.playing
+	if "stream" in data:
+		bgm.stream = data.stream
 
 
 func _hook_portals() -> void:
@@ -56,13 +76,25 @@ func _on_build(data) -> void:
 			level.set_cell(target_tile_x, target_tile_y, 0)
 
 
+func _input(event):
+	if event.is_action_pressed("show_instructions"):
+		$UI/UI/RichTextLabel.visible = true
+	elif event.is_action_released("show_instructions"):
+		$UI/UI/RichTextLabel.visible = false
+
+
 func _on_endportal_body_entered(body: Node2D, next_level: PackedScene, portal: EndPortal) -> void:
+	# Make sure the player can't trigger this function more than once.
+	if entering_portal || not portal.can_enter(body):
+		return
+	entering_portal = true
+
 	# Despawn all projectiles
 	for despawn in get_tree().get_nodes_in_group(PROJECTILES_GROUP):
 		despawn.queue_free()
 
+	var animation = portal.on_portal_enter(body)
 	body.get_parent().remove_child(body)
-	var animation = portal.on_portal_enter()
 
 	yield(animation, "animation_finished")
 	call_deferred("_finish_level", next_level)
@@ -71,7 +103,7 @@ func _on_endportal_body_entered(body: Node2D, next_level: PackedScene, portal: E
 func _finish_level(next_level: PackedScene = null) -> void:
 	# Create the new level, insert it into the tree and remove the old one.
 	# If next_level is null, return to the hub
-	var new_level: TileMap = next_level.instance() if next_level != null else hub
+	var new_level: Node = next_level.instance() if next_level != null else hub
 	add_child_below_node(level, new_level)
 	if level == hub:
 		remove_child(level)
@@ -91,4 +123,6 @@ func _finish_level(next_level: PackedScene = null) -> void:
 	#Removing instructions
 	$UI/UI/RichTextLabel.visible = false
 
+	# Reset entering portal state
+	entering_portal = false
 	EventBus.emit_signal("level_started", {})

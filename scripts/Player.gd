@@ -1,52 +1,45 @@
 class_name Player
 extends KinematicBody2D
 
+# This signal is emited from Shooter.gd
+#warning-ignore: UNUSED_SIGNAL
 signal shooting
 
-const MAXFALLSPEED = 1100
 const MAXSPEED = 350
 const JUMPFORCE = 1100
-const ACCEL = 50
+const MAXACCEL = 50
+const MINACCEL = 0.25 * MAXACCEL
+const JERK = 0.25
+const STOPTHRESHOLD = 5  # Speed at which we should stop motion if idle.
 const COYOTE_TIME = 0.1
 const JUMP_BUFFER_TIME = 0.05
 const SLIP_RANGE = 16
-
-export(PackedScene) var default_projectile: PackedScene = preload("res://scenes/CoinProjectile.tscn")
-export(PackedScene) var fireball_projectile: PackedScene = preload("res://scenes/powerups/Fireball.tscn")
+const SUPER_JUMP_MAX_TIME = 0.5
 
 var gravity = preload("res://scripts/resources/Gravity.tres")
+var inventory = preload("res://scripts/resources/PlayerInventory.tres")
+var stats = preload("res://scripts/resources/PlayerStats.tres")
 
 var coyote_timer = COYOTE_TIME  # used to give a bit of extra-time to jump after leaving the ground
 var jump_buffer_timer = 0  # gives a bit of buffer to hit the jump button before landing
-var motion = Vector2()
+var x_motion = AxisMotion.new(AxisMotion.X, MAXSPEED, MAXACCEL, JERK)
+var y_motion = AxisMotion.new(gravity.direction, JUMPFORCE, gravity.strength, 0.0)
 var gravity_multiplier = 1  # used for jump height variability
 var double_jump = true
 var crouching = false
 var grounded = false
 var anticipating_jump = false  # the small window of time before the player jumps
-var coins = 0  #grabbed directly from the coin_collected signal;
-var hearts = 3
-var hasFlower = false
-var isBus = false
-
-# STATS BLOCK
-var max_hearts = 3
-var jump_xp = 0
-var coin_shoot_xp = 0
-var intelegence = 1
-var speed = 1
-var charisma = 1
-var swim = 0
-var acrobatics = 0
-var building = 1
-var sanity = 10
+var super_jumping = false
+var super_jump_timer = 0.0
+var powerupspeed = 1
+var powerupaccel = 1
 
 onready var sprite = $Sprite
+onready var anim = $Sprite/Anims
 onready var tween = $Tween
 onready var trail: Line2D = $Trail
 onready var run_particles: CPUParticles2D = $RunParticles
-
-var bus_sprite = preload("res://sprites/bus.png")
+onready var moustache = $BoucyMoustache  # Gorgeous bouncy moustache!
 
 onready var original_scale = sprite.scale
 onready var squash_scale = Vector2(original_scale.x * 1.4, original_scale.y * 0.4)
@@ -54,53 +47,87 @@ onready var stretch_scale = Vector2(original_scale.x * 0.4, original_scale.y * 1
 
 
 func _ready() -> void:
-	EventBus.connect("coin_collected", self, "_on_coin_collected")
+	_end_flash_sprite()
+	set_hitbox_crouching(false)
+
+
+func _enter_tree():
 	EventBus.connect("heart_changed", self, "_on_heart_change")
-	hearts = get_node("../../UI/UI/HeartCount").count
-	EventBus.connect("fire_flower_collected", self, "_on_flower_collected")
 	EventBus.connect("enemy_hit_coin", self, "_on_enemy_hit_coin")
 	EventBus.connect("enemy_hit_fireball", self, "_on_enemy_hit_fireball")
-	EventBus.connect("bus_collected", self, "_on_bus_collected")
+
+
+func _exit_tree():
+	# make sure the Marios in other levels (or hub) don't receive events
+	EventBus.disconnect("heart_changed", self, "_on_heart_change")
+	EventBus.disconnect("enemy_hit_coin", self, "_on_enemy_hit_coin")
+	EventBus.disconnect("enemy_hit_fireball", self, "_on_enemy_hit_fireball")
 
 
 func _physics_process(delta: float) -> void:
-	if Input.is_action_just_pressed("Build"):
-		EventBus.emit_signal("build_block", {"player": self})
+	# set these each loop in case of changes in gravity or acceleration modifiers
+	x_motion.max_speed = MAXSPEED
+	x_motion.max_accel = MAXACCEL
+	y_motion.set_axis(gravity.direction)
+	y_motion.max_accel = gravity.strength
 
-	var max_speed_modifier = 1
-	var acceleration_modifier = 1
-	var animationSpeed = 8
+	x_motion.max_speed *= powerupspeed
+	x_motion.max_accel *= powerupaccel
+
+	var jerk_modifier = 1
+	var animationSpeed = 1
 	if Input.is_action_pressed("sprint"):
-		speed += 1
-		max_speed_modifier = 1.5
-		acceleration_modifier = 3
-		animationSpeed = 60
-	sprite.frames.set_animation_speed("run", animationSpeed)
+		stats.speed += 1
+		x_motion.max_speed *= 1.5
+		x_motion.max_accel *= 3
+		jerk_modifier = 3
+		animationSpeed = 6
+	anim.playback_speed = animationSpeed
 	if Input.is_action_pressed("right"):
-		motion.x += ACCEL * acceleration_modifier
-		sprite.play("run")
+		jerk_right(JERK * jerk_modifier)
+		anim.playAnim("Run")
 		# pointing the character in the direction he's running
 		run_particles.emitting = true
 		look_right()
 	elif Input.is_action_pressed("left"):
-		motion.x -= ACCEL * acceleration_modifier
-		sprite.play("run")
+		jerk_left(JERK * jerk_modifier)
+		anim.playAnim("Run")
 		run_particles.emitting = true
 		look_left()
 	else:
-		sprite.play("idle")
+		anim.playAnim("Idle")
+		if x_motion.get_speed() > STOPTHRESHOLD:
+			jerk_left(JERK)
+		elif x_motion.get_speed() < -STOPTHRESHOLD:
+			jerk_right(JERK)
+		else:
+			x_motion.set_speed(0)
+			x_motion.set_jerk(0)
+			x_motion.set_accel(0)
 		run_particles.emitting = false
-		motion.x = lerp(motion.x, 0, 0.2)
 
 	jump_buffer_timer -= delta
-	if Input.is_action_just_pressed("jump"):
-		if coyote_timer > 0:
+	if Input.is_action_just_pressed("jump") and not super_jumping:
+		# If experienced enough, do a super crouch jump
+		if crouching and stats.acrobatics >= 10:
+			super_jumping = true
+			super_jump()
+		elif coyote_timer > 0:
 			jump()
 		elif double_jump:
+			stats.acrobatics += 1
 			jump()
 			double_jump = false
 		else:
 			jump_buffer_timer = JUMP_BUFFER_TIME
+
+	# A super jump is a set height
+	if super_jumping:
+		if super_jump_timer < SUPER_JUMP_MAX_TIME:
+			super_jump_timer += delta
+			gravity_multiplier = 0.1
+		else:
+			super_jumping = false
 
 	if _is_on_floor():
 		if not grounded:
@@ -116,28 +143,29 @@ func _physics_process(delta: float) -> void:
 			crouch()
 	else:
 		grounded = false
+		crouching = false
 		coyote_timer -= delta
 		# while we're holding the jump button we should jump higher
-		if Input.is_action_pressed("jump"):
-			gravity_multiplier = 0.5
-		else:
-			gravity_multiplier = 1
-		sprite.play("jump")
+		if not super_jumping:
+			if Input.is_action_pressed("jump"):
+				gravity_multiplier = 0.5
+			else:
+				gravity_multiplier = 1
+		anim.playAnim("Jump")
 		run_particles.emitting = false
 
 	if crouching and not Input.is_action_pressed("down"):
 		crouching = false
+		set_hitbox_crouching(false)
+		moustache.position.y = 0
 		unsquash()
 
-	motion.y += gravity.direction.y * gravity.strength * gravity_multiplier
+	y_motion.set_accel(gravity.strength * gravity_multiplier)
 	sprite.flip_v = gravity.direction.y < 0
 
-	if abs(motion.y) > MAXFALLSPEED:
-		motion.y = sign(motion.y) * MAXFALLSPEED
-
-	motion.x = clamp(motion.x, -MAXSPEED * max_speed_modifier, MAXSPEED * max_speed_modifier)
-
-	var move_and_slide_result = move_and_slide(motion, Vector2.UP)
+	var move_and_slide_result = move_and_slide(
+		y_motion.update_motion() + x_motion.update_motion(), Vector2.UP
+	)
 	var slide_count = get_slide_count()
 
 	var slipped = false
@@ -146,7 +174,8 @@ func _physics_process(delta: float) -> void:
 		slipped = try_slip(get_slide_collision(slide_count - 1).get_angle())
 	# apply original result if no valid slip found
 	if !slipped:
-		motion = move_and_slide_result
+		x_motion.set_motion(move_and_slide_result)
+		y_motion.set_motion(move_and_slide_result)
 
 
 func try_slip(angle: float):
@@ -159,7 +188,7 @@ func try_slip(angle: float):
 	for r in range(1, SLIP_RANGE):
 		for p in [-1, 1]:
 			position[axis] = original_v + r * p
-			move_and_slide(motion, Vector2.UP)
+			move_and_slide(x_motion.get_motion() + y_motion.get_motion(), Vector2.UP)
 			if get_slide_count() == 0:
 				return true  # if no collision, return success
 	# restore original value on axis if couldn't find a slip
@@ -167,31 +196,36 @@ func try_slip(angle: float):
 	return false
 
 
-func _input(event: InputEvent):
-	# Remove one coin and spawn a projectile
-	# Continus shooting after 0 coins
-	if event.is_action_pressed("shoot") and coins > 0:
-		EventBus.emit_signal("coin_collected", {"value": -1, "type": "gold"})
-		shoot(default_projectile)
-	#Shoots fireball
-	if event.is_action_pressed("fire") and hasFlower:
-		shoot(fireball_projectile)
-
-
 func crouch():
 	crouching = true
+	set_hitbox_crouching(true)
+	moustache.position.y = 17.5  # Moves gorgeous bouncy moustache lower when rouching
 	squash()
 
 
 func jump():
+	stats.jump_xp += 1
 	tween.stop_all()
 	anticipating_jump = true
+	set_hitbox_crouching(false)
 	squash(0.03, 0, 0.5)
 	yield(tween, "tween_all_completed")
 	stretch(0.2, 0, 0.5, 1.2)
 	jump_buffer_timer = 0
 	coyote_timer = 0
-	motion.y = JUMPFORCE * (gravity.direction.y * -1)
+	y_motion.set_speed(JUMPFORCE * -1)
+	anticipating_jump = false
+	$JumpSFX.play()
+	EventBus.emit_signal("jumping")
+
+
+func super_jump():
+	super_jump_timer = 0
+	stats.jump_xp += 1
+	stats.acrobatics += 1
+	tween.stop_all()
+	stretch(0.2, 0, 1.0, 2.5)
+	y_motion.set_speed(JUMPFORCE * -100)
 	anticipating_jump = false
 	$JumpSFX.play()
 	EventBus.emit_signal("jumping")
@@ -204,33 +238,14 @@ func land():
 		unsquash(0.18)
 
 
-func shoot(projectile_scene: PackedScene):
-	# Spawn the projectile and move it to its origin point
-	# Origin is affected by changes to Sprite (ex: squashing)
-	var projectile = projectile_scene.instance()
-	get_parent().add_child(projectile)
-	var shoot_dir := Vector2.LEFT if sprite.flip_h else Vector2.RIGHT
-	#Changes ShootOrigin based on direction
-	if shoot_dir == Vector2.LEFT:
-		$Sprite/ShootOrigin.set_position(Vector2(-4, -16))
-	else:
-		$Sprite/ShootOrigin.set_position(Vector2(4, -16))
-	projectile.position = $Sprite/ShootOrigin.global_position
-	# Projectile handles movement
-	projectile.start_moving(shoot_dir)
-	emit_signal("shooting")
-
-
 func look_right():
 	sprite.flip_h = false
-	if isBus:
-		$BusSprite.flip_h = true
+	moustache.position.x = 0  # Moves gorgeous bouncy moustache to the mouth
 
 
 func look_left():
 	sprite.flip_h = true
-	if isBus:
-		$BusSprite.flip_h = false
+	moustache.position.x = -10  # Moves gorgeous bouncy moustache to the mouth
 
 
 func squash(time = 0.1, _returnDelay = 0, squash_modifier = 1.0):
@@ -291,11 +306,24 @@ func unsquash(time = 0.1, _returnDelay = 0, squash_modifier = 1.0):
 	tween.start()
 
 
+func jerk_left(jerk: float):
+	if x_motion.get_accel() > -MINACCEL:
+		x_motion.set_accel(-MINACCEL)
+	x_motion.set_jerk(-jerk)
+
+
+func jerk_right(jerk: float):
+	if x_motion.get_accel() < MINACCEL:
+		x_motion.set_accel(MINACCEL)
+	x_motion.set_jerk(jerk)
+
+
 func reset() -> void:
 	look_right()
 	run_particles.emitting = false
 	run_particles.restart()
 	trail.reset()
+	_end_flash_sprite()
 
 
 func bounce(strength = 1100):
@@ -303,7 +331,7 @@ func bounce(strength = 1100):
 	yield(tween, "tween_all_completed")
 	stretch(0.15)
 	coyote_timer = 0
-	motion.y = -strength
+	y_motion.set_speed(-strength)
 
 
 func _is_on_floor() -> bool:
@@ -313,40 +341,47 @@ func _is_on_floor() -> bool:
 	)
 
 
-func _on_coin_collected(data):
-	var value := 1
-	if data.has("value"):
-		value = data["value"]
-	coins += value
-
-
 func _on_heart_change(data):
 	var value := 1
 	if data.has("value"):
 		value = data["value"]
-	hearts += value
-	if hearts <= 0:
-		get_tree().reload_current_scene()
+	inventory.hearts += value
 
+	if value < 0:
+		$HurtSFX.play()
+		flash_sprite()
 
-func _on_flower_collected(data):
-	if data.has("collected"):
-		hasFlower = data["collected"]
+	if inventory.hearts <= 0:
+		EventBus.emit_signal("player_died")
+		if get_tree() != null:
+			yield(get_tree().create_timer(2.0), "timeout")
+			get_tree().reload_current_scene()
 
 
 func _on_enemy_hit_coin():
-	coin_shoot_xp += 1
+	stats.coin_shoot_xp += 1
 
 
 func _on_enemy_hit_fireball():
-	intelegence += 1
+	stats.intelligence += 1
 
 
-func _on_bus_collected(data):
-	if data.has("collected"):
-		isBus = data["collected"]
-		$BusSprite.visible = true
-		$BusCollision.set_deferred("disabled", false)
-		sprite.visible = false
-		$CollisionShape2D.set_deferred("disabled", true)
-		trail.height = 15
+func flash_sprite(duration: float = 0.05) -> void:
+	$Sprite.material.set_shader_param("flash_modifier", 1.0)
+	$BusSprite.material.set_shader_param("flash_modifier", 1.0)
+	$HitFlashTimer.wait_time = duration
+	$HitFlashTimer.start()
+
+
+func _end_flash_sprite() -> void:
+	$Sprite.material.set_shader_param("flash_modifier", 0.0)
+	$BusSprite.material.set_shader_param("flash_modifier", 0.0)
+
+
+func set_hitbox_crouching(value: bool):
+	if value:
+		$CollisionShape2D.shape.extents.y = 27 * 0.4
+		$CollisionShape2D.position.y = 21
+	else:
+		$CollisionShape2D.shape.extents.y = 27
+		$CollisionShape2D.position.y = 5
