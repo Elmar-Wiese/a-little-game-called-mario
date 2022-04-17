@@ -1,10 +1,13 @@
-[gd_scene load_steps=9 format=2]
+[gd_scene load_steps=12 format=2]
 
 [ext_resource path="res://scenes/title/Background.gd" type="Script" id=1]
 [ext_resource path="res://sprites/bg-tile.png" type="Texture" id=2]
 [ext_resource path="res://textures/worldmaps/world_map_standard.tres" type="TileSet" id=3]
 [ext_resource path="res://scenes/World_Map/Worldscene.gd" type="Script" id=4]
 [ext_resource path="res://textures/worldmaps/world_map_mario_sprite.tres" type="SpriteFrames" id=5]
+[ext_resource path="res://scenes/World_Map/MapCharacter.gd" type="Script" id=6]
+[ext_resource path="res://scenes/World_Map/SpritePath2DTest.gd" type="Script" id=7]
+[ext_resource path="res://sprites/Coin_Gems/star.png" type="Texture" id=8]
 
 [sub_resource type="CircleShape2D" id=1]
 radius = 4.0
@@ -14,12 +17,16 @@ extents = Vector2( 6, 8 )
 
 [sub_resource type="Curve2D" id=3]
 _data = {
-"points": PoolVector2Array(  )
+"points": PoolVector2Array( 0, 0, 0, 0, 75.7838, 92.4545, 0, 0, 0, 0, 125.946, 92.4545 )
 }
 
 [node name="Control" type="Control"]
 anchor_right = 1.0
 anchor_bottom = 1.0
+margin_left = 7.0
+margin_top = 1.0
+margin_right = 7.0
+margin_bottom = 1.0
 script = ExtResource( 4 )
 
 [node name="Background" type="Sprite" parent="."]
@@ -46,24 +53,35 @@ position = Vector2( 140, 84 )
 z_index = 1
 shape = SubResource( 1 )
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Nodes"]
+[node name="Character" type="CollisionShape2D" parent="Nodes"]
 position = Vector2( 76, 80 )
 z_index = 1
 shape = SubResource( 2 )
+script = ExtResource( 6 )
 
-[node name="AnimatedSprite" type="AnimatedSprite" parent="Nodes/CollisionShape2D"]
+[node name="AnimatedSprite" type="AnimatedSprite" parent="Nodes/Character"]
 position = Vector2( 2, 1 )
 frames = ExtResource( 5 )
 animation = "WalkRight"
 
 [node name="lvl1Tolvl2Path" type="Path2D" parent="Nodes"]
+position = Vector2( -20.6897, 11.3571 )
+scale = Vector2( 1.27586, 0.785714 )
+z_index = 1
 curve = SubResource( 3 )
 
 [node name="PathFollow2Dlvl1" type="PathFollow2D" parent="Nodes/lvl1Tolvl2Path"]
-position = Vector2( 76, 84 )
+position = Vector2( 75.7838, 92.4545 )
+rotate = false
+cubic_interp = false
+loop = false
 
-[node name="PathFollow2Dlvl2" type="PathFollow2D" parent="Nodes/lvl1Tolvl2Path"]
-position = Vector2( 140, 84 )
+[node name="Sprite" type="Sprite" parent="Nodes/lvl1Tolvl2Path/PathFollow2Dlvl1"]
+position = Vector2( 0.000160217, -47.0908 )
+scale = Vector2( 0.5, 0.5 )
+z_index = 1
+texture = ExtResource( 8 )
+script = ExtResource( 7 )
 
 [node name="TileMap" type="TileMap" parent="."]
 tile_set = ExtResource( 3 )
